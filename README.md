@@ -1,0 +1,1 @@
+TOPOMIR CONSTRUCTION - Software destinado ao desenvolvimento de topologias. A ferramenta possui uso gratuito, sendo vedada a sua comercialização. Atualmente encontra-se na versão 1 (v1), estando ainda em fase inicial de desenvolvimento, com diversas melhorias e evoluções previstas.
