@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOPOMIR CONSTRUCTION</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg-sidebar: #f1f5f9;
+            --grid-color: #e2e8f0;
+            --panel-bg: #ffffff;
+            --icon-stroke: #334155;
+            --default-fill: #f1f5f9; 
+            --canvas-bg: #ffffff;
+        }
+
+        path { fill: none; transition: stroke 0.2s; cursor: pointer; pointer-events: auto; }
+        .cable-ethernet { stroke: #2563eb; stroke-width: 2; }
+        .cable-fibra-bg { stroke: #fbce07; stroke-width: 3.5; }
+        .cable-fibra-line { stroke: white; stroke-width: 0.8; stroke-dasharray: 3; }
+        .cable-wifi { stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 6, 4; animation: dash 20s linear infinite; }
+        .cable-console { stroke: #000000; stroke-width: 2; }
+        .cable-conn { stroke: #d1d5db; stroke-width: 2; }
+
+        /* Estilo para as labels de porta */
+        .port-label {
+            position: absolute;
+            font-size: 10px;
+            font-weight: 900;
+            background: rgba(255,255,255,0.8);
+            padding: 1px 3px;
+            border-radius: 3px;
+            pointer-events: none;
+            z-index: 150;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+        }
+
+        @keyframes dash { to { stroke-dashoffset: -1000; } }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background: #0f172a; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+        .header { background: #1e293b; color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 10000; height: 60px; border-bottom: 3px solid var(--primary); }
+        .tool-btn { padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-size: 10px; font-weight: 700; transition: 0.2s; }
+        .tool-btn:hover { background: #e2e8f0; }
+        .tool-btn.primary { background: var(--primary); color: white; border: none; }
+        .tool-btn.danger { background: #ef4444; color: white; border: none; }
+        .tool-btn.success { background: #16a34a; color: white; border: none; }
+
+        .main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
+        
+        .sidebar { width: 160px; background: var(--bg-sidebar); border-right: 1px solid #cbd5e1; padding: 8px; overflow-y: auto; z-index: 100; }
+        
+        .warning-text { 
+            color: black; 
+            font-size: 10px; 
+            font-weight: 900; 
+            text-align: center; 
+            margin-bottom: 15px; 
+            padding: 5px; 
+            border: 2px solid black;
+            background: #fff;
+        }
+
+        .menu-section { margin-bottom: 15px; }
+        .menu-title { font-size: 9px; font-weight: 900; color: #64748b; text-transform: uppercase; margin-bottom: 8px; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px; }
+        .sidebar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        
+        .comp-item { cursor: grab; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 5px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 8px; font-weight: 800; text-align: center; }
+        .comp-item svg { width: 24px; height: 24px; fill: var(--default-fill); stroke: var(--icon-stroke); stroke-width: 2; }
+
+        .canvas-container { flex: 1; position: relative; overflow: auto; background-color: var(--canvas-bg); transition: background-color 0.3s; }
+        .grid-overlay { background-image: radial-gradient(var(--grid-color) 1px, transparent 1px); background-size: 25px 25px; }
+        
+        #canvas { width: 3000px; height: 3000px; position: relative; cursor: crosshair; transform-origin: 0 0; }
+        #selection-lasso { position: absolute; border: 1px solid var(--primary); background: rgba(37, 99, 235, 0.1); pointer-events: none; display: none; z-index: 100000; }
+
+        .node { position: absolute; min-width: 40px; min-height: 40px; cursor: move; z-index: 10; display: flex; align-items: center; justify-content: center; }
+        .node.selected { outline: 2px dashed var(--primary); background: rgba(37, 99, 235, 0.05); }
+        .node svg { width: 100%; height: 100%; stroke: var(--icon-stroke); stroke-width: 2.5; pointer-events: none; }
+        
+        .resizer { width: 10px; height: 10px; background: white; border: 2px solid var(--primary); position: absolute; right: -5px; bottom: -5px; cursor: nwse-resize; display: none; z-index: 50; }
+        .node.selected .resizer { display: block; }
+
+        .text-box { position: absolute; z-index: 20; cursor: move; padding: 5px; min-width: 50px; font-weight: bold; }
+        .text-box.selected { outline: 1px dashed var(--primary); background: rgba(37, 99, 235, 0.05); }
+
+        .port { width: 12px; height: 12px; background: #22c55e; border: 2px solid white; border-radius: 50%; position: absolute; opacity: 0; cursor: crosshair; z-index: 2000; }
+        .node:hover .port { opacity: 0.8; }
+        .port-n { top: -6px; left: 50%; transform: translateX(-50%); }
+        .port-s { bottom: -6px; left: 50%; transform: translateX(-50%); }
+        .port-e { right: -6px; top: 50%; transform: translateY(-50%); }
+        .port-w { left: -6px; top: 50%; transform: translateY(-50%); }
+
+        #svg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; } /* Reduzido de 100 para 5 */
+        #temp-svg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2000; } /* Nova camada para linha temporária */
+
+        #props-panel { position: absolute; right: -330px; top: 0; width: 320px; height: 100%; background: var(--panel-bg); border-left: 1px solid #cbd5e1; transition: 0.3s ease; z-index: 100000; padding: 25px; box-shadow: -10px 0 20px rgba(0,0,0,0.05); overflow-y: auto; }
+        #props-panel.active { right: 0; }
+        
+        #context-menu { position: fixed; display: none; background: white; border: 1px solid #cbd5e1; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-radius: 8px; z-index: 200000; padding: 5px 0; min-width: 180px; }
+        .context-item { padding: 10px 18px; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; }
+        .context-item:hover { background: #f1f5f9; }
+
+        #conn-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 16px; display: none; z-index: 300000; width: 340px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); max-height: 80vh; overflow-y: auto;}
+        .modal-btn { display: block; width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: left;}
+
+        .bg-color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 5px; }
+        .bg-swatch { width: 100%; height: 20px; border-radius: 4px; cursor: pointer; border: 1px solid #ddd; }
+        
+        .size-inputs { display: flex; gap: 10px; margin-top: 5px; }
+        .size-inputs div { flex: 1; }
+
+        .export-group { margin-top: 15px; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+<div id="context-menu">
+    <div class="context-item" onclick="handleContextEdit()"><span>⚙️ Propriedades</span></div>
+    <div class="context-item" onclick="changeZIndex('up')"><span>🔼 Trazer para Frente</span></div>
+    <div class="context-item" onclick="changeZIndex('down')"><span>🔽 Enviar para Trás</span></div>
+    <div style="border-top:1px solid #eee; margin: 5px 0;"></div>
+    <div class="context-item" style="color:#ef4444" onclick="handleContextDelete()"><span>🗑️ Excluir (Del)</span></div>
+</div>
+
+<div id="conn-modal">
+    <h3 style="margin-bottom:15px; text-align: center;">Tipo de Cabo</h3>
+    <button class="modal-btn" onclick="confirmConn('ethernet')">🔵 Ethernet (UTP)</button>
+    <button class="modal-btn" onclick="confirmConn('fibra')">🟡 Fibra Óptica</button>
+    <button class="modal-btn" onclick="confirmConn('wifi')">📡 Wireless</button>
+    <button class="modal-btn" onclick="confirmConn('console')">⚫ Console</button>
+    <div style="border-top: 1px solid #eee; margin: 10px 0;"></div>
+    <button class="modal-btn" onclick="confirmConn('conn')">🔗 Conexão</button>
+</div>
+
+<div class="header">
+    <div style="font-weight:900; font-size: 20px;">TOPOMIR <span style="color:var(--primary)">CONSTRUCTION V1</span></div>
+    <div style="display: flex; gap: 8px;">
+        <button class="tool-btn" onclick="exportProject()">💾 EXPORTAR JSON</button>
+        <button class="tool-btn" onclick="document.getElementById('importInput').click()">📂 IMPORTAR</button>
+        <input type="file" id="importInput" style="display:none" accept=".json" onchange="importProject(event)">
+        <button class="tool-btn success" onclick="saveAsImage()">🖼️ SALVAR JPG</button>
+        <button class="tool-btn success" onclick="saveAsPDF()">📄 PDF</button>
+        <button class="tool-btn primary" onclick="addText(300, 300)">+ TEXTO</button>
+        <button class="tool-btn danger" onclick="renewTopology()">🔄 RENOVAR</button>
+    </div>
+</div>
+
+<div class="main-layout">
+    <div class="sidebar">
+        <div class="warning-text">PROIBIDO COMERCIALIZAÇÃO</div>
+
+        <div class="menu-section">
+            <div class="menu-title">🎨 Configurações</div>
+            <button class="tool-btn" style="width: 100%; margin-bottom: 8px;" onclick="toggleGrid()">GRADE ON/OFF</button>
+            <div style="font-size: 8px; font-weight: 800; color: #64748b; margin-bottom: 4px;">FUNDO</div>
+            <div class="bg-color-grid" id="canvas-bg-palette"></div>
+        </div>
+
+        <div class="menu-section">
+            <div class="menu-title">🌐 Rede</div>
+            <div class="sidebar-grid" id="sidebar-icons"></div>
+        </div>
+        <div class="menu-section">
+            <div class="menu-title">📋 Organograma</div>
+            <div class="sidebar-grid" id="sidebar-shapes"></div>
+        </div>
+    </div>
+
+    <div class="canvas-container grid-overlay" id="container">
+        <div id="canvas" onmousedown="handleCanvasMouseDown(event)" ondrop="handleDrop(event)" ondragover="event.preventDefault()">
+            <!-- Camada SVG para conexões permanentes -->
+            <svg id="svg-layer">
+                <defs>
+                    <marker id="arrow-end" markerWidth="10" markerHeight="10" refX="10" refY="5" orient="auto">
+                        <path d="M0,0 L10,5 L0,10 Z" fill="#94a3b8" />
+                    </marker>
+                    <marker id="arrow-start" markerWidth="10" markerHeight="10" refX="0" refY="5" orient="auto">
+                        <path d="M10,0 L0,5 L10,10 Z" fill="#94a3b8" />
+                    </marker>
+                </defs>
+            </svg>
+            
+            <!-- Camada SVG separada para linha temporária -->
+            <svg id="temp-svg-layer">
+                <path id="temp-line" stroke="#2563eb" stroke-width="2" stroke-dasharray="5,5" style="display:none;" />
+            </svg>
+            
+            <div id="selection-lasso"></div>
+        </div>
+    </div>
+
+    <div id="props-panel">
+        <div style="font-size: 16px; font-weight: 800; margin-bottom: 20px;">PROPRIEDADES</div>
+        
+        <div id="cable-fields" style="display:none">
+            <div class="prop-group" style="margin-bottom: 15px;">
+                <label style="display:block; font-size:10px; color:#64748b; font-weight:800; text-transform:uppercase;">Descrição Porta A</label>
+                <input type="text" id="edit-port-a" oninput="updateCableLabels()" placeholder="Ex: Gi0/1" style="width:100%; padding:8px; border:1px solid #e2e8f0; border-radius:6px;">
+            </div>
+            <div class="prop-group" style="margin-bottom: 15px;">
+                <label style="display:block; font-size:10px; color:#64748b; font-weight:800; text-transform:uppercase;">Descrição Porta B</label>
+                <input type="text" id="edit-port-b" oninput="updateCableLabels()" placeholder="Ex: Gi0/2" style="width:100%; padding:8px; border:1px solid #e2e8f0; border-radius:6px;">
+            </div>
+        </div>
+
+        <div id="text-fields" style="display:none">
+            <div class="prop-group" style="margin-bottom: 15px;"><label style="display:block; font-size:10px; color:#64748b; font-weight:800; text-transform:uppercase;">Texto</label><input type="text" id="edit-content" oninput="updateText()" style="width:100%; padding:8px; border:1px solid #e2e8f0; border-radius:6px;"></div>
+            <div class="prop-group" style="margin-bottom: 15px;">
+                <label style="display:block; font-size:10px; color:#64748b; font-weight:800; text-transform:uppercase;">Fonte e Tamanho</label>
+                <select id="edit-font" onchange="updateText()" style="width:100%; padding:8px; border:1px solid #e2e8f0; border-radius:6px;">
+                    <option value="Segoe UI">Segoe UI</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Courier New">Courier New</option>
+                </select>
+                <input type="number" id="edit-size" style="width:100%; padding:8px; border:1px solid #e2e8f0; border-radius:6px; margin-top:5px" oninput="updateText()">
+            </div>
+            <div class="prop-group" style="margin-bottom: 15px;">
+                <label style="display:block; font-size:10px; color:#64748b; font-weight:800; text-transform:uppercase;">Estilo</label>
+                <div style="display:flex; gap:5px;">
+                    <button class="tool-btn" id="btn-bold" onclick="toggleFormat('bold')">B</button>
+                    <button class="tool-btn" id="btn-italic" onclick="toggleFormat('italic')">I</button>
+                </div>
+            </div>
+            <div class="prop-group"><label style="display:block; font-size:10px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:5px;">Cor do Texto</label><div class="sidebar-grid" id="palette-text" style="grid-template-columns: repeat(5, 1fr);"></div></div>
+        </div>
+
+        <div id="device-fields" style="display:none">
+            <div class="prop-group" style="margin-bottom: 15px;">
+                <label style="display:block; font-size:10px; color:#64748b; font-weight:800; text-transform:uppercase;">Dimensões (px)</label>
+                <div class="size-inputs">
+                    <div>
+                        <span style="font-size: 8px; font-weight: 800;">LARGURA</span>
+                        <input type="number" id="edit-width" oninput="updateNodeSize()" style="width:100%; padding:8px; border:1px solid #e2e8f0; border-radius:6px;">
+                    </div>
+                    <div>
+                        <span style="font-size: 8px; font-weight: 800;">ALTURA</span>
+                        <input type="number" id="edit-height" oninput="updateNodeSize()" style="width:100%; padding:8px; border:1px solid #e2e8f0; border-radius:6px;">
+                    </div>
+                </div>
+            </div>
+            <div class="prop-group"><label style="display:block; font-size:10px; color:#64748b; font-weight:800; text-transform:uppercase; margin-bottom:5px;">Cor do Ícone / Forma</label><div class="sidebar-grid" id="palette-device" style="grid-template-columns: repeat(5, 1fr);"></div></div>
+        </div>
+
+        <div class="export-group">
+            <label style="display:block; font-size:10px; color:#64748b; font-weight:800; text-transform:uppercase;">Qualidade Exportação (1-3)</label>
+            <input type="number" id="export-scale" value="2" min="1" max="4" style="width:100%; padding:5px; border-radius:4px; border:1px solid #ccc;">
+        </div>
+        
+        <button style="width:100%; padding:12px; background:#16a34a; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:800; margin-top:20px;" onclick="closePanel()">FECHAR</button>
+    </div>
+</div>
+
+<script>
+    const state = { elements: [], links: [], selectedIds: new Set(), activeEditId: null, isLasso: false, lassoStart: {x:0, y:0}, zCounter: 1000, pendingConn: null };
+    
+const icons = {
+        router: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><circle cx="50" cy="50" r="40"/><path d="M50 20 L50 80 M20 50 L80 50" stroke="inherit" stroke-width="2.5"/></svg>`,
+        switch: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><rect x="10" y="30" width="80" height="40" rx="2" /><path d="M25 42 L40 42 M60 42 L75 42 M25 58 L40 58" stroke="inherit" stroke-width="4"/></svg>`,
+        hub: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><rect x="15" y="35" width="70" height="30" rx="2"/><circle cx="30" cy="50" r="2" fill="inherit"/><circle cx="50" cy="50" r="2" fill="inherit"/><circle cx="70" cy="50" r="2" fill="inherit"/><path d="M15 45 H85" stroke="inherit" stroke-width="1.5"/></svg>`,
+        firewall: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><rect x="10" y="20" width="80" height="60"/><path d="M10 40 H90 M10 60 H90 M30 20 V40 M70 20 V40 M50 40 V60 M30 60 V80 M70 60 V80" stroke="inherit" stroke-width="2.5" fill="none"/></svg>`,
+        vpn: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><rect x="25" y="45" width="50" height="35" rx="2"/><path d="M35 45 V30 C35 20 65 20 65 30 V45" stroke="inherit" stroke-width="3" fill="none"/></svg>`,
+        ap: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><circle cx="50" cy="40" r="6"/><path d="M50 90 L50 50 M35 55 Q20 40 35 25" stroke="inherit" stroke-width="3" fill="none"/></svg>`,
+        smartphone: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><rect x="32" y="15" width="36" height="70" rx="5"/><circle cx="50" cy="78" r="3" fill="inherit"/></svg>`,
+        laptop: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><path d="M20 20 H80 V65 H20 Z"/><path d="M10 65 H90 L95 75 H5 Z" stroke="inherit" stroke-width="2"/></svg>`,
+        server: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><rect x="25" y="10" width="50" height="80" rx="2"/><line x1="35" y1="25" x2="65" y2="25" stroke="inherit" stroke-width="4"/></svg>`,
+        impressora: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><path d="M30 20 H70 V40 H30 Z M20 40 H80 V75 H20 Z M30 75 V90 H70 V75" stroke="inherit" stroke-width="2.5"/><line x1="40" y1="55" x2="60" y2="55" stroke="inherit" stroke-width="2"/></svg>`,
+        database: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><ellipse cx="50" cy="25" rx="30" ry="15"/><path d="M20 25 V75 C20 83 80 83 80 75 V25" stroke="inherit" stroke-width="3" fill="none"/></svg>`,
+        internet: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><circle cx="50" cy="50" r="40"/><ellipse cx="50" cy="50" rx="15" ry="40" stroke="inherit" stroke-width="2" fill="none"/><line x1="10" y1="50" x2="90" y2="50" stroke="inherit" stroke-width="2"/></svg>`,
+        user: `<svg viewBox="0 0 100 100" fill="#f1f5f9" stroke="inherit"><circle cx="50" cy="35" r="15" stroke-width="3"/><path d="M20 85 C20 65 35 55 50 55 C65 55 80 65 80 85" stroke-width="3"/></svg>`,
+        cloud: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><path d="M25 70 Q10 70 10 55 Q10 40 25 40 Q25 20 45 20 Q65 20 70 40 Q90 40 90 60 Q90 75 75 75 H25 Z"/></svg>`
+    };
+
+    const shapes = {
+        rect: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><rect x="5" y="5" width="90" height="90" stroke="inherit" stroke-width="2"/></svg>`,
+        circle: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><circle cx="50" cy="50" r="45" stroke="inherit" stroke-width="2"/></svg>`,
+        rhombus: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><path d="M50 5 L95 50 L50 95 L5 50 Z" stroke="inherit" stroke-width="2"/></svg>`,
+        capsule: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><rect x="5" y="25" width="90" height="50" rx="25" stroke="inherit" stroke-width="2"/></svg>`,
+        document: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><path d="M15 5 H65 L85 25 V95 H15 Z" stroke="inherit" stroke-width="2"/><path d="M65 5 V25 H85" fill="none" stroke="inherit" stroke-width="2"/></svg>`,
+        data: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><path d="M10 25 Q10 10 50 10 T90 25 V75 Q90 90 50 90 T10 75 Z" stroke="inherit" stroke-width="2"/></svg>`,
+        manual: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><path d="M10 20 L90 10 V80 L10 90 Z" stroke="inherit" stroke-width="2"/></svg>`,
+        prep: `<svg viewBox="0 0 100 100" fill="#f1f5f9"><path d="M25 10 H75 L90 50 L75 90 H25 L10 50 Z" stroke="inherit" stroke-width="2"/></svg>`
+    };
+
+    const colors = ['#000000', '#4b5563', '#94a3b8', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#2196F3', '#7c3aed'];
+    const bgColors = ['#ffffff', '#f8fafc', '#f1f5f9', '#e2e8f0', '#cbd5e1', '#0f172a', '#1e293b', '#334155'];
+
+    function initMenus() {
+        const iconsCont = document.getElementById('sidebar-icons');
+        const shapesCont = document.getElementById('sidebar-shapes');
+        const bgCont = document.getElementById('canvas-bg-palette');
+
+        bgColors.forEach(c => {
+            const s = document.createElement('div');
+            s.className = 'bg-swatch';
+            s.style.backgroundColor = c;
+            s.onclick = () => changeCanvasBackground(c);
+            bgCont.appendChild(s);
+        });
+
+        Object.keys(icons).forEach(k => {
+            const d = document.createElement('div'); d.className='comp-item'; d.draggable=true;
+            d.innerHTML = `${icons[k]} <span>${k.toUpperCase()}</span>`;
+            d.ondragstart = (e) => e.dataTransfer.setData("type", k);
+            iconsCont.appendChild(d);
+        });
+        Object.keys(shapes).forEach(k => {
+            const d = document.createElement('div'); d.className='comp-item'; d.draggable=true;
+            const labels = {rect: 'BLOCO', circle: 'INÍCIO', rhombus: 'DECISÃO', capsule: 'FIM', document: 'DOC', data: 'DADOS', manual: 'MANUAL', prep: 'PREP'};
+            d.innerHTML = `${shapes[k]} <span>${labels[k]}</span>`;
+            d.ondragstart = (e) => e.dataTransfer.setData("type", k);
+            shapesCont.appendChild(d);
+        });
+        
+        ['text', 'device'].forEach(pType => {
+            const cont = document.getElementById('palette-'+pType);
+            colors.forEach(c => {
+                const s = document.createElement('div'); 
+                s.style.cssText = `width:25px; height:25px; background:${c}; border:1px solid #ddd; cursor:pointer; border-radius:4px;`;
+                s.onclick = () => {
+                    const item = state.elements.find(el => el.id === state.activeEditId);
+                    if(!item) return;
+                    if(pType === 'text') {
+                        item.el.style.color = c;
+                    } else { 
+                        const svg = item.el.querySelector('svg');
+                        svg.style.fill = c;
+                    }
+                };
+                cont.appendChild(s);
+            });
+        });
+    }
+
+    function changeCanvasBackground(color) {
+        document.documentElement.style.setProperty('--canvas-bg', color);
+    }
+
+    function toggleGrid() {
+        document.getElementById('container').classList.toggle('grid-overlay');
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        const type = e.dataTransfer.getData("type");
+        const rect = document.getElementById('canvas').getBoundingClientRect();
+        const x = (e.clientX - rect.left);
+        const y = (e.clientY - rect.top);
+        createNode(type, Math.round(x/25)*25, Math.round(y/25)*25);
+    }
+
+    function createNode(type, x, y, w = 60, h = 60, id = 'n_'+Date.now()) {
+        const el = document.createElement('div'); 
+        el.className='node'; 
+        el.id=id; 
+        el.style.left=x+'px'; 
+        el.style.top=y+'px'; 
+        el.style.width=w+'px'; 
+        el.style.height=h+'px';
+        
+        // Encontrar o maior zIndex atual e colocar o novo elemento na frente
+        let maxZIndex = state.zCounter;
+        state.elements.forEach(e => {
+            const z = parseInt(e.el.style.zIndex) || 0;
+            if (z > maxZIndex) maxZIndex = z;
+        });
+        state.links.forEach(l => {
+            const z = parseInt(l.el.style.zIndex) || 0;
+            if (z > maxZIndex) maxZIndex = z;
+        });
+        
+        el.style.zIndex = maxZIndex + 1;
+        state.zCounter = maxZIndex + 2; // Atualizar o contador global
+        
+        const source = icons[type] || shapes[type];
+        el.innerHTML = `${source}<div class="port port-n" data-anchor="n"></div><div class="port port-s" data-anchor="s"></div><div class="port port-e" data-anchor="e"></div><div class="port port-w" data-anchor="w"></div><div class="resizer"></div>`;
+        
+        el.onmousedown = (e) => { 
+            e.stopPropagation(); 
+            if(e.button===0 && !e.target.closest('.port') && !e.target.closest('.resizer')) { 
+                if(!state.selectedIds.has(id)) { clearSelection(); select(id); } 
+                startMoving(e); 
+            } 
+        };
+        el.oncontextmenu = (e) => showContextMenu(e, id);
+        el.querySelectorAll('.port').forEach(p => p.onmousedown = (e) => { e.stopPropagation(); startConnecting(id, e); });
+        
+        const resizer = el.querySelector('.resizer');
+        resizer.onmousedown = (e) => {
+            e.stopPropagation();
+            const startW = el.offsetWidth, startH = el.offsetHeight, startX = e.clientX, startY = e.clientY;
+            const move = (ev) => {
+                const newW = startW + (ev.clientX - startX), newH = startH + (ev.clientY - startY);
+                if(newW > 30) el.style.width = newW + 'px';
+                if(newH > 30) el.style.height = newH + 'px';
+                updateLinks();
+            };
+            const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+            document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+        };
+
+        document.getElementById('canvas').appendChild(el);
+        state.elements.push({ id, el, type: 'node', deviceType: type });
+    }
+
+    function addText(x, y) {
+        const id = 't_'+Date.now();
+        const el = document.createElement('div');
+        el.className = 'text-box';
+        el.id = id;
+        el.innerText = 'Novo Texto';
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.fontSize = '14px';
+        el.style.color = '#334155';
+        
+        // Mesma lógica de zIndex que createNode
+        let maxZIndex = state.zCounter;
+        state.elements.forEach(e => {
+            const z = parseInt(e.el.style.zIndex) || 0;
+            if (z > maxZIndex) maxZIndex = z;
+        });
+        state.links.forEach(l => {
+            const z = parseInt(l.el.style.zIndex) || 0;
+            if (z > maxZIndex) maxZIndex = z;
+        });
+        
+        el.style.zIndex = maxZIndex + 1;
+        state.zCounter = maxZIndex + 2;
+        
+        el.onmousedown = (e) => { 
+            e.stopPropagation(); 
+            if(e.button===0) { 
+                if(!state.selectedIds.has(id)) { clearSelection(); select(id); } 
+                startMoving(e); 
+            } 
+        };
+        el.oncontextmenu = (e) => showContextMenu(e, id);
+        
+        document.getElementById('canvas').appendChild(el);
+        state.elements.push({ id, el, type: 'text' });
+    }
+
+    function getAnchorPos(nodeId, anchorType) {
+        const node = document.getElementById(nodeId);
+        if(!node) return {x:0, y:0};
+        const w = node.offsetWidth, h = node.offsetHeight, x = node.offsetLeft, y = node.offsetTop;
+        switch(anchorType) {
+            case 'n': return { x: x + w/2, y: y };
+            case 's': return { x: x + w/2, y: y + h };
+            case 'e': return { x: x + w, y: y + h/2 };
+            case 'w': return { x: x, y: y + h/2 };
+            default: return { x: x + w/2, y: y + h/2 }; 
+        }
+    }
+
+    function startConnecting(nodeId, e) {
+        const tempLine = document.getElementById('temp-line'), rect = document.getElementById('canvas').getBoundingClientRect();
+        const anchorType = e.target.dataset.anchor || 'center';
+        const startPos = getAnchorPos(nodeId, anchorType);
+        
+        tempLine.setAttribute('d', `M ${startPos.x} ${startPos.y} L ${startPos.x} ${startPos.y}`); 
+        tempLine.style.display='block';
+
+        const move = (ev) => { 
+            const x2 = ev.clientX - rect.left;
+            const y2 = ev.clientY - rect.top;
+            tempLine.setAttribute('d', `M ${startPos.x} ${startPos.y} L ${x2} ${y2}`); 
+        };
+
+        const up = (ev) => {
+            document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up);
+            tempLine.style.display='none';
+            const targetPort = ev.target.closest('.port');
+            const targetNode = ev.target.closest('.node');
+            
+            if(targetNode && targetNode.id !== nodeId) {
+                const endAnchor = targetPort ? targetPort.dataset.anchor : 'center';
+                state.pendingConn = { 
+                    start: {nodeId, anchor: anchorType}, 
+                    end: {nodeId: targetNode.id, anchor: endAnchor} 
+                };
+                document.getElementById('conn-modal').style.display = 'block';
+            }
+        };
+        document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+    }
+
+    function confirmConn(type) {
+        const id = 'l_'+Date.now(), g = document.createElementNS("http://www.w3.org/2000/svg", "g"); 
+        g.id = id;
+        
+        // Definir zIndex para o link baseado no estado atual
+        let maxZIndex = state.zCounter;
+        state.elements.forEach(e => {
+            const z = parseInt(e.el.style.zIndex) || 0;
+            if (z > maxZIndex) maxZIndex = z;
+        });
+        state.links.forEach(l => {
+            const z = parseInt(l.el.style.zIndex) || 0;
+            if (z > maxZIndex) maxZIndex = z;
+        });
+        
+        // Agora os links têm zIndex relativo igual aos elementos
+        g.style.zIndex = maxZIndex + 1;
+        state.zCounter = maxZIndex + 2;
+        
+        const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        let className = 'cable-' + type;
+        if(type === 'fibra') className = 'cable-fibra-bg';
+        p.setAttribute("class", className); 
+        g.appendChild(p);
+        if(type === 'fibra') {
+            const p2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            p2.setAttribute("class", "cable-fibra-line"); g.appendChild(p2);
+        }
+        g.style.pointerEvents = "auto";
+        g.onclick = (e) => { e.stopPropagation(); select(id); };
+        g.oncontextmenu = (e) => { e.preventDefault(); state.activeEditId = id; showContextMenu(e, id); };
+        document.getElementById('svg-layer').appendChild(g);
+
+        // Criar as labels de porta no Canvas (DOM) para as pontas A e B
+        const labelA = document.createElement('div');
+        labelA.className = 'port-label';
+        labelA.style.display = 'none';
+        document.getElementById('canvas').appendChild(labelA);
+
+        const labelB = document.createElement('div');
+        labelB.className = 'port-label';
+        labelB.style.display = 'none';
+        document.getElementById('canvas').appendChild(labelB);
+
+        state.links.push({ 
+            id, 
+            ...state.pendingConn, 
+            type, 
+            el: g,
+            portA: '', 
+            portB: '',
+            labelAEl: labelA,
+            labelBEl: labelB
+        });
+        updateLinks(); document.getElementById('conn-modal').style.display='none';
+    }
+
+    function updateLinks() {
+        state.links.forEach(l => {
+            const p1 = getAnchorPos(l.start.nodeId, l.start.anchor);
+            const p2 = getAnchorPos(l.end.nodeId, l.end.anchor);
+            
+            // Atualiza o desenho do cabo
+            l.el.querySelectorAll('path').forEach(p => p.setAttribute("d", `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`));
+
+            // Atualiza posição das labels perto dos pontos de conexão
+            if(l.portA && l.labelAEl) {
+                l.labelAEl.innerText = l.portA;
+                l.labelAEl.style.display = 'block';
+                // Offset de 15px para não ficar em cima do ícone
+                l.labelAEl.style.left = (p1.x + (p2.x - p1.x) * 0.1) + 'px';
+                l.labelAEl.style.top = (p1.y + (p2.y - p1.y) * 0.1) + 'px';
+            } else if(l.labelAEl) { l.labelAEl.style.display = 'none'; }
+
+            if(l.portB && l.labelBEl) {
+                l.labelBEl.innerText = l.portB;
+                l.labelBEl.style.display = 'block';
+                l.labelBEl.style.left = (p2.x + (p1.x - p2.x) * 0.1) + 'px';
+                l.labelBEl.style.top = (p2.y + (p1.y - p2.y) * 0.1) + 'px';
+            } else if(l.labelBEl) { l.labelBEl.style.display = 'none'; }
+        });
+    }
+
+    // Função para atualizar as labels via painel de propriedades
+    function updateCableLabels() {
+        const link = state.links.find(l => l.id === state.activeEditId);
+        if(!link) return;
+        link.portA = document.getElementById('edit-port-a').value;
+        link.portB = document.getElementById('edit-port-b').value;
+        updateLinks();
+    }
+
+    function startMoving(e) {
+        const targets = state.elements.filter(el => state.selectedIds.has(el.id));
+        const offsets = targets.map(t => ({ id: t.id, dx: e.clientX - t.el.offsetLeft, dy: e.clientY - t.el.offsetTop }));
+        const move = (ev) => {
+            offsets.forEach(o => {
+                const el = document.getElementById(o.id);
+                el.style.left = Math.round((ev.clientX - o.dx)/25)*25 + 'px';
+                el.style.top = Math.round((ev.clientY - o.dy)/25)*25 + 'px';
+            });
+            updateLinks();
+        };
+        const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+        document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+    }
+
+    function handleCanvasMouseDown(e) {
+        if(e.button !== 0 || e.target.id !== 'canvas') return;
+        clearSelection();
+        state.isLasso = true;
+        const rect = document.getElementById('canvas').getBoundingClientRect();
+        state.lassoStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const lasso = document.getElementById('selection-lasso');
+        lasso.style.display = 'block';
+        const move = (ev) => {
+            const curX = ev.clientX - rect.left, curY = ev.clientY - rect.top;
+            const x = Math.min(curX, state.lassoStart.x), y = Math.min(curY, state.lassoStart.y);
+            const w = Math.abs(curX - state.lassoStart.x), h = Math.abs(curY - state.lassoStart.y);
+            lasso.style.left = x + 'px'; lasso.style.top = y + 'px';
+            lasso.style.width = w + 'px'; lasso.style.height = h + 'px';
+            state.elements.forEach(item => {
+                const itemX = item.el.offsetLeft, itemY = item.el.offsetTop;
+                if(itemX > x && itemX < x+w && itemY > y && itemY < y+h) select(item.id); else unselect(item.id);
+            });
+        };
+        const up = () => { state.isLasso = false; lasso.style.display = 'none'; document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+        document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+    }
+
+    function select(id) { state.selectedIds.add(id); document.getElementById(id)?.classList.add('selected'); }
+    function unselect(id) { state.selectedIds.delete(id); document.getElementById(id)?.classList.remove('selected'); }
+    function clearSelection() { state.selectedIds.forEach(id => unselect(id)); state.selectedIds.clear(); }
+
+    function showContextMenu(e, id) {
+        state.activeEditId = id;
+        const menu = document.getElementById('context-menu');
+        menu.style.display = 'block'; menu.style.left = e.clientX + 'px'; menu.style.top = e.clientY + 'px';
+    }
+    function hideContextMenu() { document.getElementById('context-menu').style.display = 'none'; }
+    document.addEventListener('click', hideContextMenu);
+
+    function handleContextEdit() {
+        const id = state.activeEditId;
+        const node = state.elements.find(e => e.id === id);
+        const link = state.links.find(l => l.id === id);
+        const panel = document.getElementById('props-panel');
+        
+        document.getElementById('text-fields').style.display = 'none';
+        document.getElementById('device-fields').style.display = 'none';
+        document.getElementById('cable-fields').style.display = 'none';
+
+        if (node) {
+            if (node.type === 'text') {
+                document.getElementById('text-fields').style.display = 'block';
+                document.getElementById('edit-content').value = node.el.innerText;
+                document.getElementById('edit-size').value = parseInt(node.el.style.fontSize);
+            } else {
+                document.getElementById('device-fields').style.display = 'block';
+                document.getElementById('edit-width').value = node.el.offsetWidth;
+                document.getElementById('edit-height').value = node.el.offsetHeight;
+            }
+        } else if (link) {
+            // Se for cabo, mostra campos de porta
+            document.getElementById('cable-fields').style.display = 'block';
+            document.getElementById('edit-port-a').value = link.portA || '';
+            document.getElementById('edit-port-b').value = link.portB || '';
+        }
+
+        panel.classList.add('active');
+        hideContextMenu();
+    }
+
+    function closePanel() { 
+        document.getElementById('props-panel').classList.remove('active'); 
+        state.activeEditId = null; // Limpar o ID ativo ao fechar
+    }
+
+    function updateText() {
+        const item = state.elements.find(e => e.id === state.activeEditId);
+        if(!item || item.type !== 'text') return;
+        item.el.innerText = document.getElementById('edit-content').value;
+        item.el.style.fontFamily = document.getElementById('edit-font').value;
+        item.el.style.fontSize = document.getElementById('edit-size').value + 'px';
+    }
+
+    function updateNodeSize() {
+        const item = state.elements.find(e => e.id === state.activeEditId);
+        if(!item || item.type !== 'node') return;
+        item.el.style.width = document.getElementById('edit-width').value + 'px';
+        item.el.style.height = document.getElementById('edit-height').value + 'px';
+        updateLinks();
+    }
+
+    function toggleFormat(type) {
+        const item = state.elements.find(e => e.id === state.activeEditId);
+        if(!item || item.type !== 'text') return;
+        if(type === 'bold') item.el.style.fontWeight = item.el.style.fontWeight === 'bold' ? 'normal' : 'bold';
+        if(type === 'italic') item.el.style.fontStyle = item.el.style.fontStyle === 'italic' ? 'normal' : 'italic';
+    }
+
+    function handleContextDelete() {
+        const id = state.activeEditId;
+        const el = document.getElementById(id);
+        if(el) el.remove();
+        
+        // Remove labels de porta se for link
+        const linkIndex = state.links.findIndex(l => l.id === id);
+        if(linkIndex !== -1) {
+            const link = state.links[linkIndex];
+            if(link.labelAEl) link.labelAEl.remove();
+            if(link.labelBEl) link.labelBEl.remove();
+            state.links.splice(linkIndex, 1);
+        }
+
+        state.elements = state.elements.filter(e => e.id !== id);
+        state.selectedIds.delete(id);
+        hideContextMenu();
+        closePanel();
+    }
+
+    // CORREÇÃO: Função changeZIndex atualizada para lidar com elementos E links
+    function changeZIndex(dir) {
+        const id = state.activeEditId;
+        const node = state.elements.find(e => e.id === id);
+        const link = state.links.find(l => l.id === id);
+        const target = (node ? node.el : (link ? link.el : null));
+        if(!target) return;
+
+        if (dir === 'up') {
+            // Trazer para frente - encontrar maior zIndex e colocar acima
+            let maxZIndex = state.zCounter;
+            state.elements.forEach(e => {
+                const z = parseInt(e.el.style.zIndex) || 0;
+                if (z > maxZIndex) maxZIndex = z;
+            });
+            state.links.forEach(l => {
+                const z = parseInt(l.el.style.zIndex) || 0;
+                if (z > maxZIndex) maxZIndex = z;
+            });
+            
+            target.style.zIndex = maxZIndex + 1;
+            state.zCounter = maxZIndex + 2;
+        } else {
+            // Enviar para trás - encontrar o menor zIndex e colocar abaixo
+            let minZIndex = Infinity;
+            
+            // Verificar todos os elementos (nós e texto)
+            state.elements.forEach(e => {
+                if (e.id !== id) { // Não considerar o próprio elemento
+                    const z = parseInt(e.el.style.zIndex) || 0;
+                    if (z < minZIndex) minZIndex = z;
+                }
+            });
+            
+            // Verificar todos os links
+            state.links.forEach(l => {
+                if (l.id !== id) { // Não considerar o próprio link
+                    const z = parseInt(l.el.style.zIndex) || 0;
+                    if (z < minZIndex) minZIndex = z;
+                }
+            });
+            
+            // Se não encontrou outros elementos, usar 0 como base
+            if (minZIndex === Infinity) minZIndex = 0;
+            
+            // Colocar o elemento 1 nível abaixo do menor zIndex encontrado
+            // Mas garantir que não fique atrás da camada SVG (z-index: 5)
+            const newZIndex = Math.min((minZIndex - 1), 4); // Máximo 4 para ficar atrás da camada SVG (5)
+            target.style.zIndex = newZIndex > 0 ? newZIndex : 1;
+        }
+        hideContextMenu();
+    }
+
+    function renewTopology() {
+        if(confirm("Deseja limpar todo o projeto?")) {
+            state.elements.forEach(e => e.el.remove());
+            state.links.forEach(l => {
+                l.el.remove();
+                if(l.labelAEl) l.labelAEl.remove();
+                if(l.labelBEl) l.labelBEl.remove();
+            });
+            state.elements = [];
+            state.links = [];
+            state.selectedIds.clear();
+            closePanel();
+        }
+    }
+
+    async function saveAsImage() {
+        const canvas = document.getElementById('canvas');
+        const scale = document.getElementById('export-scale').value || 2;
+        const rect = getDrawingRect();
+        
+        const blob = await html2canvas(canvas, {
+            backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg'),
+            scale: scale,
+            x: rect.minX - 50,
+            y: rect.minY - 50,
+            width: (rect.maxX - rect.minX) + 100,
+            height: (rect.maxY - rect.minY) + 100
+        });
+        const link = document.createElement('a');
+        link.download = 'topologia.jpg';
+        link.href = blob.toDataURL('image/jpeg', 0.9);
+        link.click();
+    }
+
+    async function saveAsPDF() {
+        const { jsPDF } = window.jspdf;
+        const canvas = document.getElementById('canvas');
+        const rect = getDrawingRect();
+        
+        const screenshot = await html2canvas(canvas, {
+            backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg'),
+            scale: 2,
+            x: rect.minX - 50,
+            y: rect.minY - 50,
+            width: (rect.maxX - rect.minX) + 100,
+            height: (rect.maxY - rect.minY) + 100
+        });
+
+        const imgData = screenshot.toDataURL('image/png');
+        const pdf = new jsPDF('l', 'mm', 'a4');
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        
+        const imgWidth = rect.maxX - rect.minX + 100;
+        const imgHeight = rect.maxY - rect.minY + 100;
+        const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+        
+        const nw = imgWidth * ratio;
+        const nh = imgHeight * ratio;
+        const px = (pageWidth - nw) / 2;
+        const py = (pageHeight - nh) / 2;
+
+        pdf.addImage(imgData, 'PNG', px, py, nw, nh);
+        pdf.save("topologia.pdf");
+    }
+
+    function getDrawingRect() {
+        let minX = 3000, minY = 3000, maxX = 0, maxY = 0;
+        if(state.elements.length === 0) return {minX:0, minY:0, maxX:500, maxY:500};
+        
+        state.elements.forEach(el => {
+            const x = el.el.offsetLeft, y = el.el.offsetTop;
+            const w = el.el.offsetWidth, h = el.el.offsetHeight;
+            minX = Math.min(minX, x); minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x + w); maxY = Math.max(maxY, y + h);
+        });
+        return {minX, minY, maxX, maxY};
+    }
+
+    function exportProject() {
+        const data = {
+            bg: getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg'),
+            elements: state.elements.map(e => ({
+                id: e.id, type: e.type, deviceType: e.deviceType,
+                x: e.el.offsetLeft, y: e.el.offsetTop,
+                w: e.el.offsetWidth, h: e.el.offsetHeight,
+                content: e.el.innerText,
+                style: { 
+                    fontSize: e.el.style.fontSize, 
+                    color: e.el.style.color, 
+                    fill: e.el.querySelector('svg')?.style.fill,
+                    fontWeight: e.el.style.fontWeight,
+                    fontStyle: e.el.style.fontStyle
+                },
+                zIndex: e.el.style.zIndex
+            })),
+            links: state.links.map(l => ({
+                id: l.id, type: l.type, start: l.start, end: l.end,
+                portA: l.portA, portB: l.portB,
+                zIndex: l.el.style.zIndex
+            }))
+        };
+        const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'projeto.json'; a.click();
+    }
+
+    function importProject(event) {
+        const file = event.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = JSON.parse(e.target.result);
+            renewTopology();
+            if(data.bg) changeCanvasBackground(data.bg);
+            
+            // Primeiro importar elementos
+            data.elements.forEach(d => {
+                if(d.type === 'node') {
+                    createNode(d.deviceType, d.x, d.y, d.w, d.h, d.id);
+                    const el = document.getElementById(d.id);
+                    if(d.style.fill) el.querySelector('svg').style.fill = d.style.fill;
+                    if(d.zIndex) el.style.zIndex = d.zIndex;
+                } else {
+                    addText(d.x, d.y);
+                    const el = document.getElementById(state.elements[state.elements.length-1].id);
+                    el.innerText = d.content;
+                    el.style.fontSize = d.style.fontSize;
+                    el.style.color = d.style.color;
+                    el.style.fontWeight = d.style.fontWeight;
+                    el.style.fontStyle = d.style.fontStyle;
+                    if(d.zIndex) el.style.zIndex = d.zIndex;
+                }
+            });
+            
+            // Depois importar links
+            data.links.forEach(l => {
+                state.pendingConn = { start: l.start, end: l.end };
+                confirmConn(l.type);
+                const newLink = state.links[state.links.length-1];
+                newLink.portA = l.portA || '';
+                newLink.portB = l.portB || '';
+                if(l.zIndex) newLink.el.style.zIndex = l.zIndex;
+            });
+            
+            updateLinks();
+        };
+        reader.readAsText(file);
+    }
+
+    // Função para fechar todos os painéis com ESC
+    function handleEscapeKey() {
+        // Fechar menu de contexto se estiver aberto
+        const contextMenu = document.getElementById('context-menu');
+        if (contextMenu.style.display === 'block') {
+            hideContextMenu();
+            return;
+        }
+        
+        // Fechar modal de conexão se estiver aberto
+        const connModal = document.getElementById('conn-modal');
+        if (connModal.style.display === 'block') {
+            connModal.style.display = 'none';
+            return;
+        }
+        
+        // Fechar painel de propriedades se estiver aberto
+        const propsPanel = document.getElementById('props-panel');
+        if (propsPanel.classList.contains('active')) {
+            closePanel();
+            return;
+        }
+        
+        // Limpar seleção se houver elementos selecionados
+        if (state.selectedIds.size > 0) {
+            clearSelection();
+            return;
+        }
+    }
+
+    initMenus();
+    
+    // Configurar atalhos de teclado
+    window.onkeydown = (e) => {
+        // ESC para fechar/voltar
+        if(e.key === 'Escape') {
+            e.preventDefault();
+            handleEscapeKey();
+        }
+        
+        // Delete para deletar elementos selecionados
+        if(e.key === 'Delete') {
+            // Se há elementos selecionados, deletar todos
+            if(state.selectedIds.size > 0) {
+                // Criar uma cópia do array para não ter problemas de iteração
+                const idsToDelete = Array.from(state.selectedIds);
+                idsToDelete.forEach(id => {
+                    // Verificar se é um elemento ou link
+                    const el = document.getElementById(id);
+                    if(el) el.remove();
+                    
+                    // Remove labels de porta se for link
+                    const linkIndex = state.links.findIndex(l => l.id === id);
+                    if(linkIndex !== -1) {
+                        const link = state.links[linkIndex];
+                        if(link.labelAEl) link.labelAEl.remove();
+                        if(link.labelBEl) link.labelBEl.remove();
+                        state.links.splice(linkIndex, 1);
+                    }
+                    
+                    // Remove do array de elementos
+                    state.elements = state.elements.filter(e => e.id !== id);
+                    state.selectedIds.delete(id);
+                });
+            } 
+            // Se não há elementos selecionados mas há activeEditId, deletar esse
+            else if(state.activeEditId) {
+                handleContextDelete();
+            }
+            
+            // Fechar painel se estiver aberto
+            closePanel();
+            hideContextMenu();
+        }
+        
+        // Ctrl+Z para undo (opcional)
+        if(e.ctrlKey && e.key === 'z') {
+            e.preventDefault();
+            // Implementação de undo pode ser adicionada aqui
+        }
+        
+        // Ctrl+S para salvar (opcional)
+        if(e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            exportProject();
+        }
+    };
+</script>
+
+</body>
+</html>
