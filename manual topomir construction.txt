@@ -1,0 +1,75 @@
+
+Este manual descreve as funcionalidades e a operação do software TOPOMIR CONSTRUCTION, uma ferramenta web para criação de topologias de rede, diagramas de infraestrutura e organogramas técnicos.
+
+1. Interface Principal
+A interface é dividida em quatro áreas fundamentais:
+
+Cabeçalho (Header): Contém ferramentas de salvamento, exportação (JSON, JPG, PDF), criação de texto e reinicialização.
+
+Barra Lateral (Sidebar): Biblioteca de ativos contendo ícones de rede (Roteadores, Switches, etc.) e formas de organograma (Blocos, Decisões).
+
+Área de Trabalho (Canvas): Onde o diagrama é construído. Possui uma grade (grid) para alinhamento preciso.
+
+Painel de Propriedades: Painel flutuante à direita (abre ao editar um item) para ajustar cores, tamanhos, fontes e descrições de portas.
+
+2. Operações Básicas
+Adicionar Elementos
+Localize o ícone ou forma desejada na barra lateral esquerda.
+
+Clique e arraste o item para dentro da área branca (Canvas).
+
+O elemento será posicionado automaticamente alinhando-se à grade.
+
+Seleção e Movimentação
+Clique único: Seleciona um elemento.
+
+Arrastar: Move o elemento pela tela (o movimento é baseado em um grid de 25px).
+
+Seleção em Massa (Lasso): Clique em uma área vazia do canvas e arraste para criar um retângulo de seleção. Todos os itens dentro dele serão selecionados simultaneamente.
+
+Redimensionar: Ao selecionar uma forma ou ícone, clique e arraste o pequeno quadrado branco (resizer) no canto inferior direito do elemento.
+
+3. Conexões e Cabeamento
+O software permite interligar dispositivos com diferentes tipos de cabos:
+
+Passe o mouse sobre um dispositivo para revelar os Pontos de Conexão (Portas) verdes.
+
+Clique em um ponto verde e arraste o cabo até outro dispositivo.
+
+Ao soltar, um menu aparecerá para escolher o tipo de cabo:
+
+Ethernet (UTP): Azul sólido.
+
+Fibra Óptica: Amarelo com detalhe tracejado.
+
+Wireless: Cinza tracejado com animação de movimento.
+
+Console: Preto sólido.
+
+Conexão: Link genérico cinza.
+
+4. Edição e Propriedades
+Para editar detalhes de qualquer item, clique com o botão direito sobre ele e selecione "⚙️ Propriedades".
+
+Para Dispositivos e Formas:
+Altere a cor de preenchimento através da paleta.
+
+Ajuste manualmente a largura e altura em pixels.
+
+Altere a ordem de empilhamento (Trazer para frente / Enviar para trás).
+
+Para Cabos:
+Descrição de Porta: Insira identificadores (ex: Gi0/1, Fa0/0) nos campos "Porta A" e "Porta B". As etiquetas aparecerão automaticamente nas extremidades do cabo.
+
+Para Textos:
+Altere o conteúdo, a fonte, o tamanho, a cor e a formatação (Negrito/Itálico).
+
+5. Exportação e SalvamentoO software oferece múltiplas formas de preservar seu trabalho:FormatoDescriçãoExportar JSONSalva o projeto em um arquivo de dados. Use para continuar editando depois através do botão Importar.Salvar JPGGera uma imagem estática do seu diagrama. Você pode ajustar a qualidade (1 a 4) no painel de propriedades.PDFGera um documento em PDF do diagrama atual.RenovarLimpa todo o canvas para iniciar um novo projeto do zero.
+
+Nota de Segurança: Conforme indicado na barra lateral, este software possui restrição de comercialização. Certifique-se de salvar seu progresso regularmente exportando o arquivo JSON.
+
+
+
+
+
+
