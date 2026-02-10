@@ -1,0 +1,3 @@
+Aplicação destinada para execução no navegador de desktop.
+
+faça o download e execute a pagina WEB
